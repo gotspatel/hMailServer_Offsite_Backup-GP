@@ -7,13 +7,14 @@
 	hMailServer Backup
 
 .FUNCTIONALITY
-	Backs up hMailServer, compresses backup and uploads to LetsUpload.io
+	Backs up hMailServer, compresses backup and uploads to LetsUpload
 
 .PARAMETER 
 
 	
 .NOTES
 	Run at 11:58PM from task scheduler in order to properly cycle log files.
+	
 	
 .EXAMPLE
 
@@ -55,22 +56,24 @@ Set-Variable -Name SpamFedMessageErrors -Value 0 -Option AllScope
 Set-Variable -Name LearnedHamMessages -Value 0 -Option AllScope
 Set-Variable -Name LearnedSpamMessages -Value 0 -Option AllScope
 
-<#  Remove trailing slashes from folder locations  #>
+<#  Remove trailing slashes from folder locations  #>	
 $hMSDir = $hMSDir -Replace('\\$','')
-$SevenZipDir = $SevenZipDir -Replace('\\$','')
 $MailDataDir = $MailDataDir -Replace('\\$','')
 $BackupTempDir = $BackupTempDir -Replace('\\$','')
 $BackupLocation = $BackupLocation -Replace('\\$','')
 $SADir = $SADir -Replace('\\$','')
 $SAConfDir = $SAConfDir -Replace('\\$','')
 $MySQLBINdir = $MySQLBINdir -Replace('\\$','')
+$NASBackupLocation = $NASBackupLocation -Replace('\\$','')
+$LogBackupLocation = $LogBackupLocation -Replace('\\$','')
 
 <#  Validate folders  #>
 ValidateFolders $hMSDir
-ValidateFolders $SevenZipDir
 ValidateFolders $MailDataDir
 ValidateFolders $BackupTempDir
 ValidateFolders $BackupLocation
+ValidateFolders $LogBackupLocation
+
 If ($UseSA) {
 	ValidateFolders $SADir
 	ValidateFolders $SAConfDir
@@ -95,7 +98,7 @@ If ($UseHTML) {
 	Write-Output "
 		<!DOCTYPE html><html>
 		<head><meta name=`"viewport`" content=`"width=device-width, initial-scale=1.0 `" /></head>
-		<body style=`"font-family:Arial Narrow`"><table>
+		<body style=`"font-family:Calibri`"><table>
 	" | Out-File $EmailBody -Encoding ASCII -Append
 }
 
@@ -113,30 +116,30 @@ Debug "HMS Start Time            : $hMSStartTime ($(ElapsedTime $hMSStartTime))"
 Debug "HMS Daily Spam Reject     : $hMSSpamCount"
 Debug "HMS Daily Viruses Removed : $hMSVirusCount"
 If ($UseHTML) {
-	Email "<center>:::&nbsp;&nbsp;&nbsp;hMailServer Backup Routine&nbsp;&nbsp;&nbsp;:::</center>"
-	Email "<center>$(Get-Date -f D)</center>"
+	Email "<center>:::&nbsp;&nbsp;&nbsp;hMailServer Backup Routine&nbsp;&nbsp;&nbsp;$(Get-Date -f D)&nbsp;&nbsp;&nbsp;:::</center>"
+	#Email "<center>$(Get-Date -f D)</center>"
 	Email " "
-	Email "Last Reboot Time: $(($BootTime).ToString('yyyy-MM-dd HH:mm:ss'))"
-	Email "HMS Start Time: $hMSStartTime"
+	Email "Last Reboot Time:&ensp;$(($BootTime).ToString('yyyy-MM-dd HH:mm:ss'))"
+	Email "HMS Start Time:&ensp;$hMSStartTime"
 	If ($hMSSpamCount -gt 0) {
-		Email "HMS Daily Spam Reject count: <span style=`"background-color:red;color:white;font-weight:bold;font-family:Courier New;`">$hMSSpamCount</span>"
+		Email "HMS Daily Spam Reject count: <span style=`"background-color:red;color:white;font-weight:bold;font-family:Cambria;`"> $hMSSpamCount </span>"
 	} Else {
-		Email "HMS Daily Spam Reject count: <span style=`"background-color:green;color:white;font-weight:bold;font-family:Courier New;`">0</span>"
+		Email "HMS Daily Spam Reject count: <span style=`"background-color:green;color:white;font-weight:bold;font-family:Cambria;`"> 0 </span>"
 	}
 	If ($hMSVirusCount -gt 0) {
-		Email "HMS Daily Viruses Removed count: <span style=`"background-color:red;color:white;font-weight:bold;font-family:Courier New;`">$hMSVirusCount</span>"
+		Email "HMS Daily Viruses Removed count: <span style=`"background-color:red;color:white;font-weight:bold;font-family:Cambria;`"> $hMSVirusCount </span>"
 	} Else {
-		Email "HMS Daily Viruses Removed count: <span style=`"background-color:green;color:white;font-weight:bold;font-family:Courier New;`">0</span>"
+		Email "HMS Daily Viruses Removed count: <span style=`"background-color:green;color:white;font-weight:bold;font-family:Cambria;`"> 0 </span>"
 	}
 	Email " "
 } Else {
-	Email ":::   hMailServer Backup Routine   :::"
-	Email "       $(Get-Date -f D)"
+	Email ":::   hMailServer Backup Routine          $(Get-Date -f D)   :::"
+	#Email "       $(Get-Date -f D)"
 	Email " "
 	Email "Last Reboot Time: $(($BootTime).ToString('yyyy-MM-dd HH:mm:ss'))"
 	Email "HMS Start Time: $hMSStartTime"
-	Email "HMS Daily Spam Reject count: $hMSSpamCount"
-	Email "HMS Daily Viruses Removed count: $hMSVirusCount"
+	Email "HMS Daily Spam Reject Count: $hMSSpamCount"
+	Email "HMS Daily Viruses Removed Count: $hMSVirusCount"
 	Email " "
 }
 
@@ -170,7 +173,7 @@ If ($BackupMisc) {BackupMiscellaneousFiles}
 Debug "----------------------------"
 If ($BackupSuccess -eq ($DoBackupDataDir + $DoBackupDB + $MiscBackupFiles.Count)) {
 	Debug "All files backed up successfully"
-	Email "[OK] Backed up data successfully"
+	Email "[OK] Backed up Data successfully"
 } Else {
 	Debug "[ERROR] Backup count mismatch."
 	Email "[ERROR] Backup count mismatch : Check Debug Log"
@@ -181,6 +184,9 @@ If ($UseSA) {ServiceStart $SAServiceName}
 ServiceStart $hMSServiceName
 Debug "----------------------------"
 Debug "hMailServer was out of service for $(ElapsedTime $BeginShutdownPeriod)"
+
+<#  Archive hMailServer logs  #>
+If ($Archivelogs) {Archivelogs}
 
 <#  Prune hMailServer logs  #>
 If ($PruneLogs) {PruneLogs}
@@ -197,6 +203,9 @@ If ($UseSA) {If ($FeedBayes) {FeedBayes}}
 <#  Compress backup into 7z archives  #>
 If ($UseSevenZip) {MakeArchive}
 
+<#  NAS Backup Routine  #>
+If ($NASBackup) {NASBackup}
+
 <#  Upload archive to LetsUpload.io  #>
 If ($UseLetsUpload) {OffsiteUpload}
 
@@ -209,8 +218,8 @@ If (((Get-Item $DebugLog).length/1MB) -ge $MaxAttachmentSize) {
 	Debug "Debug log larger than specified max attachment size. Do not attach to email message."
 	Email "[INFO] Debug log larger than specified max attachment size. Log file stored in backup folder on server file system."
 }
-Debug "hMailServer Backup & Upload routine completed in $(ElapsedTime $StartScript)"
+Debug "hMailServer Backup & Upload routine COMPLETED in $(ElapsedTime $StartScript)"
 Email " "
-Email "hMailServer Backup & Upload routine completed in $(ElapsedTime $StartScript)"
+Email "<center>:::&nbsp;&nbsp;&nbsp;hMailServer Backup & Upload routine COMPLETED in $(ElapsedTime $StartScript)&nbsp;&nbsp;&nbsp;:::</center>"
 If ($UseHTML) {Write-Output "</table></body></html>" | Out-File $EmailBody -Encoding ASCII -Append}
 EmailResults
