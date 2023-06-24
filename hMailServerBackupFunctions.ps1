@@ -29,9 +29,9 @@ Function Debug ($DebugOutput) {
 
 Function Email ($EmailOutput) {
 	If ($UseHTML){
-		If ($EmailOutput -match "\[OK\]") {$EmailOutput = $EmailOutput -Replace "\[OK\]","<span style=`"background-color:green;color:white;font-weight:bold;font-family:Courier New;`">[OK]</span>"}
-		If ($EmailOutput -match "\[INFO\]") {$EmailOutput = $EmailOutput -Replace "\[INFO\]","<span style=`"background-color:yellow;font-weight:bold;font-family:Courier New;`">[INFO]</span>"}
-		If ($EmailOutput -match "\[ERROR\]") {$EmailOutput = $EmailOutput -Replace "\[ERROR\]","<span style=`"background-color:red;color:white;font-weight:bold;font-family:Courier New;`">[ERROR]</span>"}
+		If ($EmailOutput -match "\[OK\]") {$EmailOutput = $EmailOutput -Replace "\[OK\]","<span style=`"background-color:green;color:white;font-weight:bold;font-family:Cambria;`">[OK]</span>"}
+		If ($EmailOutput -match "\[INFO\]") {$EmailOutput = $EmailOutput -Replace "\[INFO\]","<span style=`"background-color:yellow;font-weight:bold;font-family:Cambria;`">[INFO]</span>"}
+		If ($EmailOutput -match "\[ERROR\]") {$EmailOutput = $EmailOutput -Replace "\[ERROR\]","<span style=`"background-color:red;color:white;font-weight:bold;font-family:Cambria;`">[ERROR]</span>"}
 		If ($EmailOutput -match "^\s$") {$EmailOutput = $EmailOutput -Replace "\s","&nbsp;"}
 		Write-Output "<tr><td>$EmailOutput</td></tr>" | Out-File $EmailBody -Encoding ASCII -Append
 	} Else {
@@ -104,7 +104,7 @@ Function ElapsedTime ($EndTime) {
 Function ServiceStop ($ServiceName) {
 	<#  Check to see if already stopped  #>
 	$BeginShutdownRoutine = Get-Date
-	Debug "----------------------------"
+	Debug "---------------------------------------------------------"
 	Debug "Stop $ServiceName"
 	$ServiceRunning = $False
 	(Get-Service $ServiceName).Refresh()
@@ -112,7 +112,7 @@ Function ServiceStop ($ServiceName) {
 		Debug "$ServiceName already STOPPED. Nothing to stop. Check event logs."
 		Email "[INFO] $ServiceName : service already STOPPED. Check event logs."
 	} Else {
-		Debug "$ServiceName running. Preparing to stop service."
+		Debug "$ServiceName running. Preparing to STOP service."
 		$ServiceRunning = $True
 	}
 
@@ -133,7 +133,7 @@ Function ServiceStop ($ServiceName) {
 			Break
 		} Else {
 			Debug "$ServiceName successfully stopped in $(ElapsedTime $BeginShutdownRoutine)"
-			Email "[OK] $ServiceName stopped"
+			Email "[OK] $ServiceName Stopped"
 		}
 	}
 }
@@ -141,7 +141,7 @@ Function ServiceStop ($ServiceName) {
 Function ServiceStart ($ServiceName) {
 	<#  Check to see if already running  #>
 	$BeginStartupRoutine = Get-Date
-	Debug "----------------------------"
+	Debug "---------------------------------------------------------"
 	Debug "Start $ServiceName"
 	$ServiceStopped = $False
 	(Get-Service $ServiceName).Refresh()
@@ -149,13 +149,13 @@ Function ServiceStart ($ServiceName) {
 		Debug "$ServiceName already RUNNING. Nothing to start."
 		Email "[INFO] $ServiceName : service already RUNNING. Check event logs."
 	} Else {
-		Debug "$ServiceName not running. Preparing to start service."
+		Debug "$ServiceName not running. Preparing to START service."
 		$ServiceStopped = $True
 	}
 
 	<#  Start service routine  #>
 	If ($ServiceStopped) {
-		Debug "$ServiceName starting up"
+		Debug "$ServiceName Starting UP"
 		$BeginStartup = Get-Date
 		Do {
 			Start-Service $ServiceName
@@ -170,36 +170,51 @@ Function ServiceStart ($ServiceName) {
 			Break
 		} Else {
 			Debug "$ServiceName successfully started in $(ElapsedTime $BeginStartupRoutine)"
-			Email "[OK] $ServiceName started"
+			Email "[OK] $ServiceName Started"
 		}
 	}
 }
 
 <#  Update SpamAssassin Function  #>
 Function UpdateSpamassassin {
-	Debug "----------------------------"
+	Debug "---------------------------------------------------------"
 	Debug "Updating SpamAssassin"
 	$BeginSAUpdate = Get-Date
 	$SAUD = "$SADir\sa-update.exe"
 	Try {
 		$SAUpdate = & $SAUD -v --nogpg --channel updates.spamassassin.org | Out-String
 		Debug $SAUpdate
-		Debug "Finished updating SpamAssassin in $(ElapsedTime $BeginSAUpdate)"
-		Email "[OK] SpamAssassin updated"
+		Debug "Finished updating SpamAssassin with SA Channel in $(ElapsedTime $BeginSAUpdate)"
+		Email "[OK] SpamAssassin updated with SA Channel"
 		If ($SAUpdate -match "Update finished, no fresh updates were available"){
-			Email "[INFO] No fresh updates available"
+			Email "[INFO] No fresh updates available for SA Channel"
 		}
 	}
 	Catch {
-		Debug "[ERROR] SpamAssassin update : $($Error[0])"
-		Email "[ERROR] SpamAssassin update : Check Debug Log"
+		Debug "[ERROR] SpamAssassin SA Channel update : $($Error[0])"
+		Email "[ERROR] SpamAssassin SA Channel update : Check Debug Log"
 	}
+	Debug "---------------------------------------------------------"
+	Try {
+		$SAUpdate = & $SAUD -v --nogpg --channel kam.sa-channels.mcgrail.com | Out-String
+		Debug $SAUpdate
+		Debug "Finished updating SpamAssassin KAM Channel in $(ElapsedTime $BeginSAUpdate)"
+		Email "[OK] SpamAssassin updated with KAM Channel"
+		If ($SAUpdate -match "Update finished for KAM Channel, no fresh updates were available"){
+			Email "[INFO] No fresh updates available for KAM Channel"
+		}
+	}
+	Catch {
+		Debug "[ERROR] SpamAssassin KAM Channel update : $($Error[0])"
+		Email "[ERROR] SpamAssassin KAM Channel update : Check Debug Log"
+	}
+
 }
 
-<#  Update custom rulesets function  #>
+<#  Update SpamAssassin custom rulesets function  #>
 Function UpdateCustomRulesets {
-	Debug "----------------------------"
-	Debug "Updating custom Spamassassin rule sets"
+	Debug "---------------------------------------------------------"
+	Debug "Updating SpamAssassin custom rulesets"
 	$CustomRuleSuccess = 0
 	$CustomRuleSetCount = $SACustomRules.Count
 	$BeginUpdatingCustomRuleSets = Get-Date
@@ -217,10 +232,10 @@ Function UpdateCustomRulesets {
 		}
 	}
 	If ($CustomRuleSuccess -eq $CustomRuleSetCount) {
-		Debug "All $CustomRuleSetCount custom rule sets updated successfully in $(ElapsedTime $BeginUpdatingCustomRuleSets)"
-		Email "[OK] $CustomRuleSetCount Custom rules updated"
+		Debug "All $CustomRuleSetCount SA custom rule sets updated successfully in $(ElapsedTime $BeginUpdatingCustomRuleSets)"
+		Email "[OK] $CustomRuleSetCount SA Custom rules updated"
 	} Else {
-		Email "[ERROR] : Custom ruleset update unsuccessful : Check debug log"
+		Email "[ERROR] : SA Custom rules update Failed : Check debug log"
 	}
 }
 
@@ -270,7 +285,7 @@ Function DownloadPhishFiles {
 <#  Backup hMailServer data dir function  #>
 Function BackuphMailDataDir {
 	$DoBackupDataDir++
-	Debug "----------------------------"
+	Debug "---------------------------------------------------------"
 	Debug "Start backing up datadir with RoboCopy"
 	$BeginRobocopy = Get-Date
 	Try {
@@ -303,25 +318,24 @@ Function BackupDatabases {
 	If ($UseMySQL) {
 		$Error.Clear()
 		$DoBackupDB++
-		Debug "----------------------------"
+		Debug "---------------------------------------------------------"
 		Debug "Begin backing up MySQL"
-		If (Test-Path "$MailDataDir\MYSQLDump_*.sql") {
-			Get-ChildItem "$MailDataDir" | Where {$_.Extension -match "sql"} | ForEach {
-				$OldMySQLDump = $_.Name
-				Debug "Deleting old MySQL database dump : $OldMySQLDump"
-				Try {
-					Remove-Item "$MailDataDir\$OldMySQLDump" -ErrorAction Stop
-					Debug "$OldMySQLDump database successfully deleted"
-				}
-				Catch {
-					Debug "[ERROR] Old MySQL database delete : $($Error[0])"
-					Email "[ERROR] Old MySQL database delete : Check Debug Log"
-				}
+		Debug " "
+		If (Test-Path "$BackupTempDir\hMailData\hMail_MYSQLDump_*.sql") {
+			Get-ChildItem "$BackupTempDir\hMailData" | Where {$_.Extension -match "sql"} | ForEach {$OldMySQLDump = $_.Name}
+			Debug "Deleting old MySQL database dump"
+			Try {
+				Remove-Item "$BackupTempDir\hMailData\hMail_MYSQLDump_*.sql" -ErrorAction Stop
+				Debug "$OldMySQLDump database successfully deleted"
+			}
+			Catch {
+				Debug "[ERROR] Old MySQL database delete : $($Error[0])"
+				Email "[ERROR] Old MySQL database delete : Check Debug Log"
 			}
 		}
 		$MySQLDump = "$MySQLBINdir\mysqldump.exe"
 		$MySQLDumpPass = "-p$MySQLPass"
-		[System.IO.FileInfo]$MySQLDumpFile = "$MailDataDir\MYSQLDump_$((Get-Date).ToString('yyyy-MM-dd')).sql"
+		$MySQLDumpFile = "$BackupTempDir\hMailData\hMail_MYSQLDump_$((Get-Date).ToString('yyyy-MM-dd')).sql"
 		Try {
 			If ($BackupAllMySQLDatbase) {
 				& $MySQLDump -u $MySQLUser $MySQLDumpPass --all-databases --result-file=$MySQLDumpFile
@@ -329,14 +343,14 @@ Function BackupDatabases {
 				& $MySQLDump -u $MySQLUser $MySQLDumpPass $MySQLDatabase --result-file=$MySQLDumpFile
 			}
 			$BackupSuccess++
-			Debug "MySQL successfully dumped $($MySQLDumpFile.Name) in $(ElapsedTime $BeginDBBackup)"
+			Debug "MySQL successfully dumped in $(ElapsedTime $BeginDBBackup)"
 		}
 		Catch {
 			Debug "[ERROR] MySQL Dump : $($Error[0])"
 			Email "[ERROR] MySQL Dump : Check Debug Log"
 		}
 	} Else {
-		Debug "----------------------------"
+		Debug "---------------------------------------------------------"
 		Debug "Begin backing up internal database"
 		Debug "Copy internal database to backup folder"
 		Try {
@@ -354,15 +368,22 @@ Function BackupDatabases {
 
 <#  Backup misc files function  #>
 Function BackupMiscellaneousFiles {
-	Debug "----------------------------"
+	Debug "---------------------------------------------------------"
 	Debug "Begin backing up miscellaneous files"
+	Debug " "
+	## CREATE FODLER FOR MISC. FILES IF NOT EXIST
+	
+	[System.IO.Directory]::CreateDirectory("$BackupTempDir\hMailData\$MBUFOLDER")
+	
+	## CREATE FODLER FOR MISC. FILES IF NOT EXIST
+	
 	$MiscBackupSuccess = 0
 	$MiscBackupFiles | ForEach {
 		$MBUF = $_
 		$MBUFName = Split-Path -Path $MBUF -Leaf
-		If (Test-Path "$BackupTempDir\hMailData\$MBUFName") {
+		If (Test-Path "$BackupTempDir\hMailData\$MBUFOLDER\$MBUFName") {
 			Try {
-				Remove-Item -Force -Path "$BackupTempDir\hMailData\$MBUFName"
+				Remove-Item -Force -Path "$BackupTempDir\hMailData\$MBUFOLDER\$MBUFName"
 				# Debug "Previously backed up $MBUFName successfully deleted"
 			}
 			Catch {
@@ -371,7 +392,7 @@ Function BackupMiscellaneousFiles {
 		} 
 		If (Test-Path $MBUF) {
 			Try {
-				Copy-Item -Path $MBUF -Destination "$BackupTempDir\hMailData"
+				Copy-Item -Path $MBUF -Destination "$BackupTempDir\hMailData\$MBUFOLDER\"
 				$BackupSuccess++
 				$MiscBackupSuccess++
 				Debug "$MBUFName successfully backed up"
@@ -387,6 +408,7 @@ Function BackupMiscellaneousFiles {
 
 	<#  Report Misc Backup Success  #>
 	If ($MiscBackupSuccess -eq $MiscBackupFiles.Count) {
+		Debug " "
 		Debug "All $($MiscBackupFiles.Count) misc files backed up"
 	} Else {
 		Debug "[ERROR] Failed to backup $($MiscBackupFiles.Count - $MiscBackupSuccess) of $($MiscBackupFiles.Count) misc files"
@@ -396,7 +418,7 @@ Function BackupMiscellaneousFiles {
 <#  7-zip archive creation function  #>
 Function MakeArchive {
 	$StartArchive = Get-Date
-	Debug "----------------------------"
+	Debug "---------------------------------------------------------"
 	Debug "Create archive : $BackupName"
 	Debug "Archive folder : $BackupTempDir"
 	$SevenZipExe = "$hMSDir\Bin\7za.exe"
@@ -423,10 +445,9 @@ Function MakeArchive {
 	}
 }
 
-
 <#  Cycle Logs  #>
 Function CycleLogs {
-	Debug "----------------------------"
+	Debug "---------------------------------------------------------"
 	Debug "Cycling Logs"
 	$LogsToCycle | ForEach {
 		$FullName = (Get-Item $_).FullName
@@ -436,7 +457,7 @@ Function CycleLogs {
 			$NewLogName = $BaseName+"_"+$((Get-Date).ToString('yyyy-MM-dd'))+$FileExt
 			Try {
 				Rename-Item $FullName $NewLogName -ErrorAction Stop
-				Debug "Cylcled $NewLogName"
+				Debug "Cycled $NewLogName"
 				} 
 			Catch {
 				Debug "[ERROR] $FullName log cycling ERROR : $($Error[0])"
@@ -447,13 +468,43 @@ Function CycleLogs {
 	}
 }
 
+<#  Zip log files  #>
+Function ArchiveLogs {
+
+	$StartLogFileArchive = Get-Date
+	$LogFileBackupName = "hMSLogs-$((Get-Date).ToString('yyyy'))"
+	Debug "---------------------------------------------------------"
+	Debug "Archiving Log Files"
+	Debug "Create/update Log archive : $LogFileBackupName"
+	Debug "Location : $LogBackupLocation"
+	$SevenZipExe = "$hMSDir\Bin\7za.exe"  
+	Try {
+		If ($SevenZipInSystemPath) {
+			$SevenZip = & cmd /c $SevenZipExe a -t7z -mx=9 "$LogBackupLocation\$LogFileBackupName.7z" "$hMSDir\Logs\*" | Out-String
+		} Else {
+			$SevenZip = & cmd /c $SevenZipExe a -t7z -mx=9 "$LogBackupLocation\$LogFileBackupName.7z" "$hMSDir\Logs\*" | Out-String
+		}
+		Debug $SevenZip
+		Debug "Logs Backup Archive creation finished in $(ElapsedTime $StartLogFileArchive)"
+		Email "[OK] Old Logs Archived"
+	}
+	Catch {
+		Debug "[ERROR] Logs Archive Creation : $($Error[0])"
+		Email "[ERROR] Logs Archive Creation : Check Debug Log"
+		Email "[ERROR] Logs Archive Creation : $($Error[0])"
+		EmailResults
+		Exit
+	}
+}
+
 <#  Prune hMailServer logs  #>
 Function PruneLogs {
 	$FilesToDel = Get-ChildItem -Path "$hMSDir\Logs" | Where-Object {$_.LastWriteTime -lt ((Get-Date).AddDays(-$DaysToKeepLogs))}
 	$CountDelLogs = $FilesToDel.Count
 	If ($CountDelLogs -gt 0){
-		Debug "----------------------------"
+		Debug "---------------------------------------------------------"
 		Debug "Begin pruning hMailServer logs older than $DaysToKeepLogs days"
+		Debug " "
 		$EnumCountDelLogs = 0
 		Try {
 			$FilesToDel | ForEach {
@@ -485,8 +536,9 @@ Function PruneBackups {
 	$FilesToDel = Get-ChildItem -Path $BackupLocation  | Where-Object {$_.LastWriteTime -lt ((Get-Date).AddDays(-$DaysToKeepBackups))}
 	$CountDel = $FilesToDel.Count
 	If ($CountDel -gt 0) {
-		Debug "----------------------------"
+		Debug "---------------------------------------------------------"
 		Debug "Begin pruning local backups older than $DaysToKeepBackups days"
+		Debug " "
 		$EnumCountDel = 0
 		Try {
 			$FilesToDel | ForEach {
@@ -629,8 +681,9 @@ Function PruneMessages {
 	
 	$Error.Clear()
 	$BeginDeletingOldMessages = Get-Date
-	Debug "----------------------------"
+	Debug "---------------------------------------------------------"
 	Debug "Begin pruning messages older than $DaysBeforeDelete days"
+	Debug " "
 	If (-not($DoDelete)) {
 		Debug "Delete disabled - Test Run ONLY"
 	}
@@ -818,10 +871,10 @@ Function GetBayesMessages ($Folder) {
 		}
 	}
 	If ($HamFedMessages -gt 0) {
-		Debug "Learned tokens from $LearnedHamMessagesFolder of $HamFedMessages HAM message$(Plural $HamFedMessages) fed from $($Folder.Name) in $($hMSAccount.Address)"
+		Debug "Learned tokens from $LearnedHamMessagesFolder of $HamFedMessages `t HAM `t message$(Plural $HamFedMessages) fed from `t $($Folder.Name) `t`t in $($hMSAccount.Address)"
 	}
 	If ($SpamFedMessages -gt 0) {
-		Debug "Learned tokens from $LearnedSpamMessagesFolder of $SpamFedMessages SPAM message$(Plural $SpamFedMessages) fed from $($Folder.Name) in $($hMSAccount.Address)"
+		Debug "Learned tokens from $LearnedSpamMessagesFolder of $SpamFedMessages `t SPAM `t message$(Plural $SpamFedMessages) fed from `t $($Folder.Name) `t`t in $($hMSAccount.Address)"
 	}
 	$ArraySpamToFeed.Clear()
 }
@@ -831,8 +884,9 @@ Function FeedBayes {
 	$Error.Clear()
 	
 	$BeginFeedingBayes = Get-Date
-	Debug "----------------------------"
+	Debug "---------------------------------------------------------"
 	Debug "Begin learning Bayes tokens from messages newer than $BayesDays days"
+	Debug " "
 	If (-not($DoSpamC)) {
 		Debug "SpamC disabled - Test Run ONLY"
 	}
@@ -878,9 +932,9 @@ Function FeedBayes {
 			}
 		}
 
-		Debug "----------------------------"
+		Debug "---------------------------------------------------------"
 		Debug "Finished feeding $($TotalHamFedMessages + $TotalSpamFedMessages) messages to Bayes in $(ElapsedTime $BeginFeedingBayes)"
-		Debug "----------------------------"
+		Debug "---------------------------------------------------------"
 		
 		If ($HamFedMessageErrors -gt 0) {
 			Debug "Errors feeding HAM to SpamC : $HamFedMessageErrors Error$(Plural $HamFedMessageErrors) present"
@@ -907,7 +961,8 @@ Function FeedBayes {
 		}
 
 		If ($SyncBayesJournal) {
-			Debug "----------------------------"
+			Debug "---------------------------------------------------------"
+			Debug "Begin Bayes Journal Syncing"
 			Try {
 				$BayesSync = & cmd /c "`"$SADir\sa-learn.exe`" --sync"
 				$BayesSyncResult = Out-String -InputObject $BayesSync
@@ -918,14 +973,48 @@ Function FeedBayes {
 			}
 			Catch {
 				Debug "[INFO] Bayes Journal Sync: $($Error[0])"
+				Debug "---------------------------------------------------------"
 			}
 		}
 
-		If ($BackupBayesDatabase) {
-			Debug "----------------------------"
+	If ($BackupBayesDatabase) {
+		$BeginDBBackup = Get-Date
+		If ($UseSAMySQL) {
+			$Error.Clear()
+			Debug "---------------------------------------------------------"
+			Debug "Begin backing up SA MySQL"
+			Debug " "
+			If (Test-Path "$BackupTempDir\hMailData\SA_MYSQLDump_*.sql") {
+				Debug "Deleting old SA MySQL database dump"
+				Try {
+					Remove-Item "$BackupTempDir\hMailData\SA_MYSQLDump_*.sql" -ErrorAction Stop
+					Debug "Old SA MySQL database successfully deleted"
+				}
+				Catch {
+					Debug "[ERROR] Old SA MySQL database delete : $($Error[0])"
+					Email "[ERROR] Old SA MySQL database delete : Check Debug Log"
+				}
+			}
+			$MySQLDump = "$MySQLBINdir\mysqldump.exe"
+			$MySQLDumpPass = "-p$MySQLPass"
+			$MySQLDumpFile = "$BackupTempDir\hMailData\SA_MYSQLDump_$((Get-Date).ToString('yyyy-MM-dd')).sql"
+			Try {
+				& $MySQLDump -u $MySQLUser $MySQLDumpPass $SASQLDatabase --result-file=$MySQLDumpFile | Out-Null -WarningAction SilentlyContinue
+				$BackupSuccess++
+				Debug "---------------------------------------------------------"
+				Debug "SA MySQL successfully dumped in $(ElapsedTime $BeginDBBackup)"
+				Debug "---------------------------------------------------------"
+				Email "[OK] SA MySQL successfully dumped"
+			}
+			Catch {
+				Debug "[ERROR] SA MySQL Dump : $($Error[0])"
+				Email "[ERROR] SA MySQL Dump : Check Debug Log"
+			}
+		} Else {
+			Debug "---------------------------------------------------------"
 			Try {
 				If (-not(Test-Path $BayesBackupLocation)) {
-					Throw "Bayes backup file does not exist - Check Path"
+					Throw "Bayes backup text db file does not exist - Check Path"
 				} Else { 
 					& cmd /c "`"$SADir\sa-learn.exe`" --backup > `"$BayesBackupLocation`""
 					If ((Get-Item -Path $BayesBackupLocation).LastWriteTime -lt ((Get-Date).AddSeconds(-30))) {
@@ -939,7 +1028,7 @@ Function FeedBayes {
 				Email "[ERROR] Backing up Bayes db"
 			}
 		}
-
+	} 
 
 	} Else {
 		Debug "[ERROR] hMailServer COM authentication failed. Check password and/or Windows Event Log."
@@ -948,11 +1037,48 @@ Function FeedBayes {
 
 }
 
+<#  Backup to NAS Backup Location $NASBackupLocation #>
+Function NASBackup {
+	Debug "---------------------------------------------------------"
+	Debug "Transfer Backup to NAS"
+	Debug "Location : $NASBackupLocation"
+	$BackupSuccess = 0
+	$BeginRobocopy = Get-Date
+		Try {
+			NET USE $NASBackupLocation
+			$RoboCopy = & robocopy $BackupLocation $NASBackupLocation /mir /ndl /r:43200 /np /w:1 | Out-String
+			Debug $RoboCopy
+			Debug "Finished uploading up to NAS in $(ElapsedTime $BeginRobocopy)"
+			$RoboStats = $RoboCopy.Split([Environment]::NewLine) | Where-Object {$_ -match 'Files\s:\s+\d'} 
+			$RoboStats | ConvertFrom-String -Delimiter "\s+" -PropertyNames Nothing, Files, Colon, Total, Copied, Skipped, Mismatch, Failed, Extras | ForEach {
+				$Copied = $_.Copied
+				$Mismatch = $_.Mismatch
+				$Failed = $_.Failed
+				$Extras = $_.Extras
+			NET USE $NASBackupLocation /D
+			}
+			If (($Mismatch -gt 0) -or ($Failed -gt 0)){
+			NET USE $NASBackupLocation /D
+				Throw "Robocopy to NAS MISMATCH or FAILED exists"
+			}
+			$BackupSuccess++
+			Debug "-------------------------------------------------------------------------------------------------------------------"
+			Debug "Robocopy backup to NAS success: $Copied new, $Extras deleted, $Mismatch mismatched, $Failed failed"
+			Debug "-------------------------------------------------------------------------------------------------------------------"
+			Email "[OK] Backup Transfer to NAS: $Copied new, $Extras del"
+		}
+		Catch {
+			Debug "[ERROR] Backup Transfer to NAS : $($Error[0])"
+			Email "[ERROR] Backup Transfer to NAS : Check Debug Log"
+			Email "[ERROR] Backup Transfer to NAS : $($Error[0])"
+		}
+}
+
 <#  Offsite upload function  #>
 Function OffsiteUpload {
 
 	$BeginOffsiteUpload = Get-Date
-	Debug "----------------------------"
+	Debug "---------------------------------------------------------"
 	Debug "Begin offsite upload process"
 
 	<#  Authorize and get access token  #>
@@ -984,7 +1110,7 @@ Function OffsiteUpload {
 	}
 
 	<#  Create Folder  #>
-	Debug "----------------------------"
+	Debug "---------------------------------------------------------"
 	Debug "Creating Folder $BackupName at LetsUpload"
 	$URICF = "https://letsupload.io/api/v2/folder/create"
 	$CFBody = @{
@@ -1018,7 +1144,7 @@ Function OffsiteUpload {
 
 	<#  Upload Files  #>
 	$StartUpload = Get-Date
-	Debug "----------------------------"
+	Debug "---------------------------------------------------------"
 	Debug "Begin uploading files to LetsUpload"
 	$CountArchVol = (Get-ChildItem "$BackupLocation\$BackupName").Count
 	Debug "There are $CountArchVol files to upload"
@@ -1032,7 +1158,7 @@ Function OffsiteUpload {
 		$FileSize = $_.Length;
 		
 		$UploadURI = "https://letsupload.io/api/v2/file/upload";
-		Debug "----------------------------"
+		Debug "---------------------------------------------------------"
 		Debug "Encoding file $FileName"
 		$BeginEnc = Get-Date
 		Try {
@@ -1128,7 +1254,7 @@ Function OffsiteUpload {
 	}
 	
 	<#  Count remote files  #>
-	Debug "----------------------------"
+	Debug "---------------------------------------------------------"
 	Debug "Counting uploaded files at LetsUpload"
 	$URIFL = "https://letsupload.io/api/v2/folder/listing"
 	$FLBody = @{
@@ -1151,7 +1277,7 @@ Function OffsiteUpload {
 	If ($FolderListingStatus -match "success") {
 		Debug "There are $RemoteFileCount file$(Plural $RemoteFileCount) in the remote folder"
 		If ($RemoteFileCount -eq $CountArchVol) {
-			Debug "----------------------------"
+			Debug "---------------------------------------------------------"
 			Debug "Finished uploading $CountArchVol file$(Plural $CountArchVol) in $(ElapsedTime $BeginOffsiteUpload)"
 			If ($TotalUploadErrors -gt 0){Debug "$TotalUploadErrors upload error$(Plural $TotalUploadErrors) successfully resolved"}
 			Debug "Upload sucessful. $CountArchVol file$(Plural $CountArchVol) uploaded to $FolderURL"
@@ -1161,7 +1287,7 @@ Function OffsiteUpload {
 				Email "[OK] $CountArchVol file$(Plural $CountArchVol) uploaded to $FolderURL"
 			}
 		} Else {
-			Debug "----------------------------"
+			Debug "---------------------------------------------------------"
 			Debug "Finished uploading in $(ElapsedTime $StartUpload)"
 			Debug "[ERROR] Number of archive files uploaded does not match count in remote folder"
 			Debug "[ERROR] Archive volumes   : $CountArchVol"
@@ -1169,7 +1295,7 @@ Function OffsiteUpload {
 			Email "[ERROR] Number of archive files uploaded does not match count in remote folder - see debug log"
 		}
 	} Else {
-		Debug "----------------------------"
+		Debug "---------------------------------------------------------"
 		Debug "Error : Unable to obtain file count from remote folder"
 		Email "[ERROR] Unable to obtain uploaded file count from remote folder - see debug log"
 	}
@@ -1177,8 +1303,9 @@ Function OffsiteUpload {
 }
 
 <#  Check for updates  #>
+
 Function CheckForUpdates {
-	Debug "----------------------------"
+	Debug "---------------------------------------------------------"
 	Debug "Checking for script update at GitHub"
 	$GitHubVersion = $LocalVersion = $NULL
 	$GetGitHubVersion = $GetLocalVersion = $False
